@@ -6,6 +6,7 @@ import { VOCABULARY_CATEGORIES, VOCABULARY_CUSTOM_CATEGORIES_STORAGE_KEY, WORD_B
 import { getVocabularyForCategory } from '../services/geminiService';
 import type { VocabularyItem } from '../types';
 import { WordBank } from './WordBank';
+import { VocabularyQuizModal } from './VocabularyQuizModal';
 
 interface Category {
     id: string;
@@ -44,6 +45,8 @@ export const VocabularyExplorer: React.FC = () => {
     // --- Word Bank State ---
     const [leftColumnView, setLeftColumnView] = useState<'categories' | 'bank'>('categories');
     const [wordBank, setWordBank] = useState<Record<string, VocabularyItem[]>>({});
+    const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+
     // This Set is used to quickly check which words have been 'banked' by the user.
     // We explicitly type `allWords` to `string[]` to avoid potential type inference
     // issues with `Array.prototype.flat()` in some environments, which could lead
@@ -233,6 +236,7 @@ export const VocabularyExplorer: React.FC = () => {
     };
 
     return (
+        <>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
             <div className="lg:col-span-4 xl:col-span-3">
                 <Card className="h-full">
@@ -390,11 +394,11 @@ export const VocabularyExplorer: React.FC = () => {
                                 })}
                            </div>
                            {currentVocabularyList.length > 0 && (
-                                <div className="mt-4 pt-4 border-t border-slate-200">
+                                <div className="mt-4 pt-4 border-t border-slate-200 flex flex-col sm:flex-row gap-3">
                                     <button
                                         onClick={handleRegenerateVocabulary}
                                         disabled={isRegenerating || isLoading || isGeneratingCustom}
-                                        className="w-full flex items-center justify-center px-4 py-2 bg-slate-200 text-slate-700 font-semibold rounded-md hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                                        className="w-full sm:flex-1 flex items-center justify-center px-4 py-2 bg-slate-200 text-slate-700 font-semibold rounded-md hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                                     >
                                         {isRegenerating ? (
                                             <>
@@ -405,6 +409,17 @@ export const VocabularyExplorer: React.FC = () => {
                                             'Generate New Set'
                                         )}
                                     </button>
+                                     <button
+                                        onClick={() => setIsQuizModalOpen(true)}
+                                        disabled={isRegenerating || isLoading || isGeneratingCustom || currentVocabularyList.length === 0}
+                                        className="w-full sm:flex-1 flex items-center justify-center px-4 py-2 bg-white border border-slate-300 text-slate-700 font-semibold rounded-md hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                                            <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h.01a1 1 0 100-2H10zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h.01a1 1 0 100-2H10z" clipRule="evenodd" />
+                                        </svg>
+                                        <span>Quiz Yourself</span>
+                                    </button>
                                 </div>
                            )}
                        </div>
@@ -412,5 +427,13 @@ export const VocabularyExplorer: React.FC = () => {
                 </Card>
             </div>
         </div>
+        <VocabularyQuizModal 
+            isOpen={isQuizModalOpen}
+            onClose={() => setIsQuizModalOpen(false)}
+            vocabularyItems={currentVocabularyList}
+            categoryName={currentTopicName || ''}
+            bankedWords={Array.from(bankedWordsSet)}
+        />
+        </>
     );
 };
