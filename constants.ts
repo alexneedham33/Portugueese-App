@@ -1,3 +1,5 @@
+import type { FunctionalDomain } from './types';
+
 export const INITIAL_VERBS: string[] = [
   "Ser",       // To be (permanent)
   "Estar",     // To be (temporary)
@@ -138,5 +140,169 @@ export const VOCABULARY_CATEGORIES = [
     { id: 'slang_idioms', name: 'Slang & Idioms', emoji: '😎', description: 'Common informal expressions and colloquialisms.' },
 ];
 
+export const FUNCTIONAL_DOMAINS: FunctionalDomain[] = [
+  {
+    id: 'everyday_communication',
+    name: 'Everyday Communication',
+    emoji: '💬',
+    subtopics: [
+      {
+        name: 'Greetings & Introductions',
+        functions: ['Greeting people', 'Introducing yourself', 'Introducing others', 'Responding to an introduction', 'Saying goodbye']
+      },
+      {
+        name: 'Basic Conversation',
+        functions: ['Making small talk', 'Asking how someone is', 'Keeping a conversation going', 'Asking for repetition', 'Asking for clarification']
+      },
+      {
+        name: 'Social Politeness',
+        functions: ['Thanking someone', 'Responding to thanks', 'Apologizing', 'Responding to an apology', 'Giving compliments']
+      }
+    ]
+  },
+  {
+    id: 'expressing_yourself',
+    name: 'Expressing Yourself',
+    emoji: '💡',
+    subtopics: [
+      {
+        name: 'Opinions & Feelings',
+        functions: ['Expressing an opinion', 'Agreeing', 'Disagreeing', 'Expressing likes and dislikes', 'Talking about feelings']
+      },
+      {
+        name: 'Information & Explanations',
+        functions: ['Giving examples', 'Explaining reasons', 'Comparing things', 'Describing people or places', 'Checking information']
+      },
+      {
+        name: 'Requests & Suggestions',
+        functions: ['Making a suggestion', 'Giving advice', 'Making a request', 'Asking for permission', 'Expressing uncertainty']
+      }
+    ]
+  },
+  {
+    id: 'food_and_travel',
+    name: 'Food & Travel',
+    emoji: '✈️',
+    subtopics: [
+      {
+        name: 'At a Restaurant',
+        functions: ['Booking a table', 'Ordering food and drinks', 'Asking for the bill', 'Making a complaint']
+      },
+      {
+        name: 'Hotels & Accommodation',
+        functions: ['Checking in at a hotel', 'Asking for hotel services', 'Checking out', 'Problems at a hotel']
+      },
+      {
+        name: 'Getting Around',
+        functions: ['Asking for directions', 'Buying tickets (bus, train)', 'Using a taxi', 'At the airport']
+      },
+      {
+        name: 'Shopping',
+        functions: ['Asking for prices', 'Asking about sizes/colors', 'Paying for items', 'Returning an item']
+      }
+    ]
+  },
+  {
+    id: 'work_and_business',
+    name: 'Work & Business',
+    emoji: '💼',
+    subtopics: [
+      {
+        name: 'In the Office',
+        functions: ['Making offers of help', 'Asking for permission', 'Arranging a meeting', 'Participating in a meeting']
+      },
+      {
+        name: 'Phone Calls',
+        functions: ['Making a phone call', 'Leaving a message', 'Answering the phone']
+      },
+      {
+        name: 'Presentations & Networking',
+        functions: ['Starting a presentation', 'Fielding questions', 'Networking with colleagues']
+      }
+    ]
+  },
+  {
+    id: 'daily_life_and_home',
+    name: 'Daily Life & Home',
+    emoji: '🏠',
+    subtopics: [
+      {
+        name: 'Making Arrangements',
+        functions: ['Planning an outing', 'Setting a time to meet', 'Confirming plans']
+      },
+      {
+        name: 'Household',
+        functions: ['Talking about chores', 'Renting an apartment', 'Dealing with repairs']
+      }
+    ]
+  },
+  {
+    id: 'socializing_and_hobbies',
+    name: 'Socializing & Hobbies',
+    emoji: '🎉',
+    subtopics: [
+      {
+        name: 'Invitations',
+        functions: ['Inviting someone', 'Accepting an invitation', 'Declining an invitation']
+      },
+      {
+        name: 'Hobbies & Interests',
+        functions: ['Talking about hobbies', 'Making plans for leisure activities', 'Joining a club or group']
+      }
+    ]
+  },
+  {
+    id: 'health_and_emergencies',
+    name: 'Health & Emergencies',
+    emoji: '🚑',
+    subtopics: [
+      {
+        name: 'At the Doctor',
+        functions: ['Making an appointment', 'Describing symptoms', 'At the pharmacy']
+      },
+      {
+        name: 'Emergencies',
+        functions: ['Asking for help', 'Reporting an emergency', 'Describing a problem (e.g., lost item)']
+      }
+    ]
+  },
+  {
+    id: 'storytelling_and_narration',
+    name: 'Storytelling & Narration',
+    emoji: '📖',
+    subtopics: [
+      {
+        name: 'Recounting Events',
+        functions: ['Setting the scene', 'Sequencing events (first, then, finally)', 'Describing past actions', 'Talking about cause and effect', 'Concluding a story']
+      },
+      {
+        name: 'Describing Experiences',
+        functions: ['Expressing how something felt', 'Describing people\'s reactions', 'Sharing a personal anecdote', 'Hyping up a story']
+      }
+    ]
+  },
+  {
+    id: 'discussion_and_persuasion',
+    name: 'Discussion & Persuasion',
+    emoji: '⚖️',
+    subtopics: [
+      {
+        name: 'Certainty & Doubt',
+        functions: ['Expressing certainty', 'Expressing doubt or skepticism', 'Hedging or being vague', 'Asking for confirmation']
+      },
+      {
+        name: 'Building an Argument',
+        functions: ['Presenting a point', 'Providing evidence or examples', 'Countering an argument', 'Making a concession', 'Summarizing a position']
+      },
+      {
+        name: 'Negotiating & Compromising',
+        functions: ['Making a proposal', 'Rejecting a proposal politely', 'Finding a middle ground', 'Stating conditions']
+      }
+    ]
+  }
+];
+
+
 export const VOCABULARY_CUSTOM_CATEGORIES_STORAGE_KEY = 'portugueseVocabularyCustomCategories';
 export const WORD_BANK_STORAGE_KEY = 'portugueseWordBank';
+export const FUNCTIONAL_CUSTOM_DOMAINS_STORAGE_KEY = 'portugueseFunctionalCustomDomains';

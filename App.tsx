@@ -9,6 +9,7 @@ import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { GrammarExplorer } from './components/GrammarExplorer';
 import { VocabularyExplorer } from './components/VocabularyExplorer';
+import { FunctionalLanguageExplorer } from './components/FunctionalLanguageExplorer';
 
 const VERBS_STORAGE_KEY = 'portugueseVerbs';
 
@@ -30,7 +31,7 @@ const App: React.FC = () => {
     return INITIAL_VERBS;
   });
 
-  const [activeView, setActiveView] = useState<'conjugator' | 'grammar' | 'vocabulary'>('conjugator');
+  const [activeView, setActiveView] = useState<'conjugator' | 'grammar' | 'vocabulary' | 'functional'>('conjugator');
   const [selectedVerb, setSelectedVerb] = useState<string | null>(verbs[0] || null);
   const [conjugations, setConjugations] = useState<ConjugationData | null>(null);
   const [selectedConjugation, setSelectedConjugation] = useState<SelectedConjugation | null>(null);
@@ -277,6 +278,8 @@ const App: React.FC = () => {
         return <GrammarExplorer />;
       case 'vocabulary':
         return <VocabularyExplorer />;
+      case 'functional':
+        return <FunctionalLanguageExplorer />;
       default:
         return null;
     }

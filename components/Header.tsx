@@ -1,8 +1,10 @@
 import React from 'react';
 
+type AppView = 'conjugator' | 'grammar' | 'vocabulary' | 'functional';
+
 interface HeaderProps {
-    activeView: 'conjugator' | 'grammar' | 'vocabulary';
-    onViewChange: (view: 'conjugator' | 'grammar' | 'vocabulary') => void;
+    activeView: AppView;
+    onViewChange: (view: AppView) => void;
 }
 
 const NavButton: React.FC<{
@@ -38,15 +40,18 @@ export const Header: React.FC<HeaderProps> = ({ activeView, onViewChange }) => {
               Portuguese <span className="text-indigo-600">Learner</span>
             </h1>
           </div>
-          <nav className="flex items-center space-x-2" aria-label="Main navigation">
+          <nav className="flex items-center space-x-1 sm:space-x-2" aria-label="Main navigation">
             <NavButton isActive={activeView === 'conjugator'} onClick={() => onViewChange('conjugator')}>
-                Verb Conjugator
+                Verbs
             </NavButton>
             <NavButton isActive={activeView === 'grammar'} onClick={() => onViewChange('grammar')}>
-                Grammar Explorer
+                Grammar
             </NavButton>
             <NavButton isActive={activeView === 'vocabulary'} onClick={() => onViewChange('vocabulary')}>
                 Vocabulary
+            </NavButton>
+            <NavButton isActive={activeView === 'functional'} onClick={() => onViewChange('functional')}>
+                Functions
             </NavButton>
           </nav>
         </div>

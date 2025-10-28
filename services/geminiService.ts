@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import type { ConjugationData, Example, GrammarParagraph, GrammarTheory, WrittenDrill, VocabularyItem } from '../types';
+import type { ConjugationData, Example, GrammarParagraph, GrammarTheory, WrittenDrill, VocabularyItem, FunctionalScene, FunctionalDomain } from '../types';
 
 if (!process.env.API_KEY) {
   throw new Error("API_KEY environment variable is not set");
@@ -11,6 +11,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const CONJUGATION_CACHE_KEY = 'portugueseConjugationCache';
 const EXAMPLE_CACHE_KEY = 'portugueseExampleCache';
 const VOCABULARY_CACHE_KEY = 'portugueseVocabularyCache';
+const FUNCTIONAL_SCENE_CACHE_KEY = 'portugueseFunctionalSceneCache';
 
 // Function to load cache from localStorage
 const loadCache = <T>(key: string): Map<string, T> => {
@@ -44,6 +45,7 @@ const saveCache = <T>(key: string, cache: Map<string, T>) => {
 const conjugationCache = loadCache<ConjugationData>(CONJUGATION_CACHE_KEY);
 const exampleCache = loadCache<Example[]>(EXAMPLE_CACHE_KEY);
 const vocabularyCache = loadCache<VocabularyItem[]>(VOCABULARY_CACHE_KEY);
+const functionalSceneCache = loadCache<FunctionalScene>(FUNCTIONAL_SCENE_CACHE_KEY);
 // -----------------
 
 const verbValidationSchema = {
@@ -201,6 +203,54 @@ const writtenDrillSchema = {
     type: Type.ARRAY,
     items: vocabularyItemSchema,
   };
+
+  const functionalSceneSchema = {
+    type: Type.OBJECT,
+    properties: {
+      sceneTitle: { type: Type.STRING, description: "A short, descriptive title for the situation, e.g., 'Ordering Coffee'." },
+      sceneDescription: { type: Type.STRING, description: "A one-sentence description of the context for the learner." },
+      phrases: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            speaker: { type: Type.STRING, description: "The role of the person speaking (e.g., 'You', 'Barista', 'Waiter', 'Friend'). Keep it simple." },
+            portuguese: { type: Type.STRING, description: "The phrase in Brazilian Portuguese." },
+            english: { type: Type.STRING, description: "The English translation of the phrase." },
+          },
+          required: ["speaker", "portuguese", "english"],
+        },
+      },
+    },
+    required: ["sceneTitle", "sceneDescription", "phrases"],
+  };
+
+  const functionalSubtopicSchema = {
+    type: Type.OBJECT,
+    properties: {
+        name: { type: Type.STRING, description: 'A logical sub-category of the main topic. E.g., for "At the Airport", a subtopic could be "Checking In".' },
+        functions: { 
+            type: Type.ARRAY, 
+            items: { type: Type.STRING },
+            description: 'A list of 3-5 specific, practical language functions or tasks within this subtopic. E.g., for "Checking In", functions could be "Stating your destination", "Checking luggage", "Asking for a window seat".'
+        },
+    },
+    required: ['name', 'functions']
+};
+
+const functionalDomainSchema = {
+    type: Type.OBJECT,
+    properties: {
+        name: { type: Type.STRING, description: 'A concise, title-cased name for the main topic provided by the user.' },
+        emoji: { type: Type.STRING, description: 'A single, relevant emoji that represents the topic.' },
+        subtopics: {
+            type: Type.ARRAY,
+            items: functionalSubtopicSchema,
+            description: 'An array of 3-5 distinct subtopics that break down the main topic into smaller, manageable parts.'
+        }
+    },
+    required: ['name', 'emoji', 'subtopics']
+};
 
 export const validateVerb = async (verb: string): Promise<VerbValidationResult> => {
     const prompt = `Is the word "${verb}" a valid infinitive verb in Brazilian Portuguese? Please provide a user-friendly reason if it is not.`;
@@ -459,7 +509,7 @@ export const getVocabularyForCategory = async (category: string, existingWords?:
          a) 'portugueseWord': The word or phrase in Portuguese.
          b) 'englishTranslation': The English equivalent.
          c) 'wordType': The grammatical type (e.g., "noun (masculine)", "noun (feminine)", "verb", "adjective", "phrase"). Be specific about noun gender.
-         d) 'exampleSentence': A natural, practical example sentence in Brazilian Portuguese that clearly shows how the word is used.
+         d) 'exampleSentence': A natural, practical example sentence in Brazilian Portuguese that shows how the word is used.
          e) 'exampleTranslation': The English translation of the example sentence.
       3. The response must be a JSON array that adheres to the provided schema.
     `;
@@ -501,6 +551,114 @@ export const getVocabularyForCategory = async (category: string, existingWords?:
     }
     return data;
 };
+
+export const getFunctionalScene = async (domain: string, subtopic: string, functionName: string, existingScene?: FunctionalScene): Promise<FunctionalScene> => {
+    // Use a distinct cache key for custom, user-generated topics.
+    const isCustom = domain === 'Custom';
+    const cacheKey = isCustom ? `custom:${functionName}` : `${domain}:${subtopic}:${functionName}`;
+    
+    // If we are regenerating (existingScene is provided), bypass the cache.
+    if (!existingScene && functionalSceneCache.has(cacheKey)) {
+        return functionalSceneCache.get(cacheKey)!;
+    }
+
+    let basePrompt: string;
+
+    if (isCustom) {
+        // Prompt for generating a scene from a user's freeform query.
+        basePrompt = `
+            You are a Brazilian Portuguese language expert creating a micro-lesson for a language learner.
+            Your task is to generate a short, realistic conversation scene or a pack of practical phrases based on a user-described situation.
+
+            Situation: "${functionName}"
+
+            Instructions:
+            1. Create a JSON object that represents this scene.
+            2. The 'sceneTitle' should be a concise, catchy summary of the situation (e.g., if the user wrote "at a party", a good title is "Making Small Talk at a Party").
+            3. The 'sceneDescription' should be a one-sentence context for the learner.
+            4. Provide a 'phrases' array containing 8-12 conversational turns.
+            5. For each phrase, specify the 'speaker', 'portuguese' phrase, and 'english' translation.
+            6. The dialogue should be natural, modern, and reflect informal Brazilian Portuguese.
+        `;
+    } else {
+        // Original prompt for predefined topics.
+        basePrompt = `
+            You are a Brazilian Portuguese language expert creating a micro-lesson for a language learner.
+            Your task is to generate a short, realistic conversation scene or a pack of practical phrases for a specific situation.
+
+            Domain: "${domain}"
+            Subtopic: "${subtopic}"
+            Language Function: "${functionName}"
+
+            Instructions:
+            1. Create a JSON object that represents this scene.
+            2. Give it a 'sceneTitle' that summarizes the situation (e.g., "Booking a Table").
+            3. Write a brief 'sceneDescription' to set the context for the learner.
+            4. Provide a 'phrases' array containing 8-12 conversational turns.
+            5. For each phrase, specify the 'speaker' (e.g., 'You', 'Receptionist', 'Waiter'), the 'portuguese' phrase, and its 'english' translation.
+            6. The dialogue should be natural, modern, and reflect informal Brazilian Portuguese.
+            7. Ensure the phrases directly relate to the specified Language Function.
+        `;
+    }
+    
+    const regenerationPrompt = existingScene
+        ? `\n\nIMPORTANT: You are generating a new version of an existing scene for a user who wants more variety. Please provide a significantly different scenario, context, or set of phrases. The previous scene was titled "${existingScene.sceneTitle}" and described as "${existingScene.sceneDescription}". Please generate a fresh take on the topic and avoid reusing phrases from the previous version.`
+        : '';
+    
+    const prompt = basePrompt + regenerationPrompt;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: functionalSceneSchema,
+            temperature: 0.8, // Slightly higher temperature for more variety on regeneration
+        },
+    });
+
+    const jsonString = response.text.trim();
+    const data = JSON.parse(jsonString) as FunctionalScene;
+
+    // Only cache the result on the initial fetch (no existing scene provided)
+    if (!existingScene) {
+        functionalSceneCache.set(cacheKey, data);
+        saveCache(FUNCTIONAL_SCENE_CACHE_KEY, functionalSceneCache);
+    }
+
+    return data;
+};
+
+
+export const generateFunctionalDomain = async (topic: string): Promise<Omit<FunctionalDomain, 'id' | 'isCustom'>> => {
+    const prompt = `
+        You are a language curriculum designer. Your task is to take a user-provided topic and break it down into a structured, practical learning module for Brazilian Portuguese.
+
+        User Topic: "${topic}"
+
+        Instructions:
+        1.  Generate a concise, title-cased 'name' for the topic.
+        2.  Choose a single, relevant 'emoji' that visually represents the topic.
+        3.  Create an array of 3 to 5 logical 'subtopics'. Each subtopic should represent a key stage or aspect of the main topic.
+        4.  For each subtopic, list 3 to 5 practical 'functions'. A function is a specific action or phrase a learner would need to use (e.g., "Asking for the price", "Making a reservation").
+        5.  The entire output MUST be a valid JSON object adhering to the provided schema.
+    `;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: functionalDomainSchema,
+            temperature: 0.5,
+        },
+    });
+
+    const jsonString = response.text.trim();
+    // The type assertion is safe here because the schema ensures the structure.
+    return JSON.parse(jsonString) as Omit<FunctionalDomain, 'id' | 'isCustom'>;
+};
+
 
 export const getSpeech = async (text: string): Promise<string> => {
     const response = await ai.models.generateContent({

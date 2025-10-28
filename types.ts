@@ -59,3 +59,30 @@ export interface VocabularyItem {
   exampleSentence: string;
   exampleTranslation: string;
 }
+
+export interface FunctionalPhrase {
+  portuguese: string;
+  english: string;
+  speaker?: string;
+}
+
+export interface FunctionalScene {
+  sceneTitle: string;
+  sceneDescription: string;
+  phrases: FunctionalPhrase[];
+}
+
+// --- New Types for Structured Functional Language ---
+
+export interface FunctionalSubtopic {
+  name: string;
+  functions: string[];
+}
+
+export interface FunctionalDomain {
+  id: string; 
+  name: string;
+  emoji: string;
+  subtopics: FunctionalSubtopic[];
+  isCustom?: boolean;
+}
