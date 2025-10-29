@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardContent } from './Card';
 import { Loader } from './Loader';
-import { GRAMMAR_TOPICS } from '../constants';
+import { GRAMMAR_TOPIC_GROUPS } from '../constants';
 import { generateGrammarParagraph, getGrammarTheory } from '../services/geminiService';
 import type { GrammarParagraph, GrammarTheory } from '../types';
 import { GrammarWrittenDrillModal } from './GrammarWrittenDrillModal';
@@ -35,7 +35,7 @@ const HighlightedParagraph: React.FC<{ text: string; highlights: string[] }> = (
 
 
 export const GrammarExplorer: React.FC = () => {
-    const [selectedTopic, setSelectedTopic] = useState<{id: string, name: string, description: string} | null>(GRAMMAR_TOPICS[0]);
+    const [selectedTopic, setSelectedTopic] = useState<{id: string, name: string, description: string} | null>(null);
     const [theme, setTheme] = useState('');
     
     const [isLoading, setIsLoading] = useState(false);
@@ -89,117 +89,145 @@ export const GrammarExplorer: React.FC = () => {
 
     return (
         <>
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="max-w-7xl mx-auto space-y-6">
             <Card>
                 <CardHeader>
                     <h2 className="text-xl font-bold text-slate-800">Grammar Explorer</h2>
                     <p className="text-sm text-slate-500">Learn the theory, generate contextual paragraphs, or start a drill.</p>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">1. Choose a grammar topic</label>
-                        <div className="flex flex-wrap gap-2">
-                           {GRAMMAR_TOPICS.map(topic => (
-                                <button
-                                    key={topic.id}
-                                    onClick={() => setSelectedTopic(topic)}
-                                    title={topic.description}
-                                    className={`px-3 py-2 text-sm font-medium rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500 ${
-                                        selectedTopic?.id === topic.id 
-                                            ? 'bg-indigo-600 text-white shadow-sm' 
-                                            : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'
-                                    }`}
-                                >
-                                    {topic.name}
-                                </button>
+                <CardContent className="space-y-6">
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-slate-800">Choose a grammar topic</h3>
+                        <div className="space-y-8">
+                           {GRAMMAR_TOPIC_GROUPS.map(group => (
+                               <section key={group.level} aria-labelledby={group.level.replace(/\s+/g, '-').toLowerCase()}>
+                                   <h4 id={group.level.replace(/\s+/g, '-').toLowerCase()} className="text-xl font-bold text-indigo-700 mb-4 pb-2 border-b-2 border-indigo-100">{group.level}</h4>
+                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                       {group.topics.map(topic => (
+                                            <button
+                                                key={topic.id}
+                                                onClick={() => setSelectedTopic(topic)}
+                                                className={`p-4 rounded-xl border-2 transition-all duration-200 text-left h-full flex flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500 ${
+                                                    selectedTopic?.id === topic.id 
+                                                        ? 'border-indigo-500 bg-indigo-50 shadow-lg scale-105' 
+                                                        : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md'
+                                                }`}
+                                            >
+                                                <h4 className="font-bold text-slate-800">{topic.name}</h4>
+                                                <p className="text-sm text-slate-500 mt-1 flex-grow">{topic.description}</p>
+                                                {topic.example && (
+                                                    <div className="mt-3 pt-3 border-t border-slate-200/80 text-sm">
+                                                        <p className="font-mono text-indigo-900 bg-indigo-100 rounded px-2 py-1 text-xs">
+                                                            <span className="font-semibold">e.g.</span> {topic.example.pt}
+                                                        </p>
+                                                        <p className="font-mono text-slate-500 italic mt-1 text-xs pl-2">
+                                                            {topic.example.en}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </button>
+                                       ))}
+                                   </div>
+                               </section>
                            ))}
                         </div>
                     </div>
-
-                    <div>
-                        <label htmlFor="theme-input" className="block text-sm font-medium text-slate-700 mb-2">2. Enter a theme for paragraph generation (optional)</label>
-                        <input
-                            id="theme-input"
-                            type="text"
-                            value={theme}
-                            onChange={(e) => setTheme(e.target.value)}
-                            placeholder="e.g., A trip to the beach, ordering coffee"
-                            className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400
-                                       focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                            aria-label="Theme for paragraph"
-                        />
-                    </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                        <button 
-                            onClick={handleLearnTheory} 
-                            disabled={isTheoryLoading || !selectedTopic} 
-                            className="w-full flex items-center justify-center px-4 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-md shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                             {isTheoryLoading ? (
-                                <>
-                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    <span>Loading Theory...</span>
-                                </>
-                             ) : (
-                                <>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                        <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3-5.804v10A7.969 7.969 0 015.5 16c1.255 0 2.443-.29 3.5-.804V4.804zM14.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 0114.5 16c1.255 0 2.443-.29 3.5-.804v-10A7.968 7.968 0 0014.5 4z" />
-                                    </svg>
-                                    <span>Learn the Theory</span>
-                                </>
-                             )}
-                        </button>
-                        <button 
-                            onClick={handleGenerate} 
-                            disabled={isLoading || !selectedTopic} 
-                            className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                            {isLoading ? (
-                                <>
-                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    <span>Generating...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                        <path d="M11.983 1.907a.75.75 0 00-1.192-.727l-6.5 4.25a.75.75 0 000 1.14l6.5 4.25a.75.75 0 001.192-.727V8.623l3.517 2.302a.75.75 0 001.192-.727V5.802a.75.75 0 00-1.192-.727L11.983 7.377V1.907zM4.5 3.5c.828 0 1.5.672 1.5 1.5v10c0 .828-.672 1.5-1.5 1.5s-1.5-.672-1.5-1.5V5c0-.828.672-1.5 1.5-1.5z" />
-                                    </svg>
-                                    <span>Generate Paragraph</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
+                    {selectedTopic && (
+                        <div className="space-y-4 pt-4 border-t border-slate-200 animate-fade-in">
+                             <style>{`
+                                @keyframes fade-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+                                .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+                            `}</style>
+                            <h3 className="text-lg font-semibold text-slate-800">
+                                Practice: <span className="text-indigo-600">{selectedTopic.name}</span>
+                            </h3>
+                            <div>
+                                <label htmlFor="theme-input" className="block text-sm font-medium text-slate-700 mb-2">Enter a theme for paragraph generation (optional)</label>
+                                <input
+                                    id="theme-input"
+                                    type="text"
+                                    value={theme}
+                                    onChange={(e) => setTheme(e.target.value)}
+                                    placeholder="e.g., A trip to the beach, ordering coffee"
+                                    className="block w-full max-w-md px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400
+                                            focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                    aria-label="Theme for paragraph"
+                                />
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                                <button 
+                                    onClick={handleLearnTheory} 
+                                    disabled={isTheoryLoading || !selectedTopic} 
+                                    className="w-full flex items-center justify-center px-4 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-md shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    {isTheoryLoading ? (
+                                        <>
+                                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span>Loading Theory...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3-5.804v10A7.969 7.969 0 015.5 16c1.255 0 2.443-.29 3.5-.804V4.804zM14.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 0114.5 16c1.255 0 2.443-.29 3.5-.804v-10A7.968 7.968 0 0014.5 4z" />
+                                            </svg>
+                                            <span>Learn the Theory</span>
+                                        </>
+                                    )}
+                                </button>
+                                <button 
+                                    onClick={handleGenerate} 
+                                    disabled={isLoading || !selectedTopic} 
+                                    className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    {isLoading ? (
+                                        <>
+                                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span>Generating...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M11.983 1.907a.75.75 0 00-1.192-.727l-6.5 4.25a.75.75 0 000 1.14l6.5 4.25a.75.75 0 001.192-.727V8.623l3.517 2.302a.75.75 0 001.192-.727V5.802a.75.75 0 00-1.192-.727L11.983 7.377V1.907zM4.5 3.5c.828 0 1.5.672 1.5 1.5v10c0 .828-.672 1.5-1.5 1.5s-1.5-.672-1.5-1.5V5c0-.828.672-1.5 1.5-1.5z" />
+                                            </svg>
+                                            <span>Generate Paragraph</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                        <button
-                            onClick={() => setIsWrittenDrillModalOpen(true)}
-                            disabled={!selectedTopic}
-                            className="w-full flex items-center justify-center px-4 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-md shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
-                                <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
-                            </svg>
-                            <span>Written Drills</span>
-                        </button>
-                        <button
-                            onClick={() => setIsSpeakingDrillModalOpen(true)}
-                            disabled={!selectedTopic}
-                            className="w-full flex items-center justify-center px-4 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-md shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M7 4a3 3 0 016 0v6a3 3 0 11-6 0V4zm-2 6a2 2 0 114 0 2 2 0 01-4 0zM10 18a7 7 0 100-14 7 7 0 000 14z" clipRule="evenodd" />
-                             </svg>
-                            <span>Speaking Practice</span>
-                        </button>
-                    </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                                <button
+                                    onClick={() => setIsWrittenDrillModalOpen(true)}
+                                    disabled={!selectedTopic}
+                                    className="w-full flex items-center justify-center px-4 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-md shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                                        <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
+                                    </svg>
+                                    <span>Written Drills</span>
+                                </button>
+                                <button
+                                    onClick={() => setIsSpeakingDrillModalOpen(true)}
+                                    disabled={!selectedTopic}
+                                    className="w-full flex items-center justify-center px-4 py-3 bg-white border border-slate-300 text-slate-700 font-semibold rounded-md shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M7 4a3 3 0 016 0v6a3 3 0 11-6 0V4zm-2 6a2 2 0 114 0 2 2 0 01-4 0zM10 18a7 7 0 100-14 7 7 0 000 14z" clipRule="evenodd" />
+                                    </svg>
+                                    <span>Speaking Practice</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                 </CardContent>
             </Card>

@@ -53,56 +53,58 @@ export const INITIAL_VERBS: string[] = [
   "Usar",      // To use
 ];
 
-export const GRAMMAR_TOPICS = [
-    // --- Key Verb Concepts ---
-    { id: 'ser_vs_estar', name: 'Ser vs. Estar', description: 'The fundamental differences between the two "to be" verbs.' },
-    { id: 'present_indicative', name: 'Present Tense', description: 'Actions happening now or regularly.' },
-    { id: 'preterite_tense', name: 'Preterite Tense', description: 'Completed actions in the past (Pretérito Perfeito).' },
-    { id: 'imperfect_tense', name: 'Imperfect Tense', description: 'Ongoing or habitual past actions (Pretérito Imperfeito).' },
-    { id: 'conditional_tense', name: 'Conditional Tense', description: 'Expressing "would" do something (Futuro do Pretérito).' },
-    { id: 'gerunds', name: 'Progressive / Gerunds', description: 'Ongoing actions (falando, comendo, partindo).' },
-    { id: 'reflexive_verbs', name: 'Reflexive Verbs', description: 'Actions done to oneself (e.g., levantar-se).'},
-    { id: 'pronominal_verbs', name: 'Pronominal Verbs', description: 'Verbs that require a reflexive pronoun but aren\'t reflexive (lembrar-se, queixar-se).' },
-
-    // --- Subjunctive Mood ---
-    { id: 'present_subjunctive', name: 'Present Subjunctive', description: 'Expressing wishes, doubts, or hypotheticals.' },
-    { id: 'imperfect_subjunctive', name: 'Imperfect Subjunctive', description: 'For unlikely events or past hypotheticals.' },
-    { id: 'future_subjunctive', name: 'Future Subjunctive', description: 'Hypothetical future actions (e.g., "Quando eu for...").' },
-    
-    // --- Commands ---
-    { id: 'imperative_mood', name: 'Imperative Mood', description: 'Giving commands and making requests (e.g., "Fale!").' },
-    { id: 'negative_imperative', name: 'Negative Imperative', description: 'Giving negative commands (e.g., "Não fale!").' },
-
-    // --- Advanced Verb Structures ---
-    { id: 'compound_tenses', name: 'Compound Tenses (Perfect)', description: 'Perfect forms using "ter" or "haver" (e.g., "tenho ido").' },
-    { id: 'personal_infinitive', name: 'Personal Infinitive', description: 'Infinitives with a specific subject (e.g., "para eu fazer").' },
-    { id: 'causative_constructions', name: 'Causative Constructions', description: 'Using mandar, fazer, or deixar + infinitive.' },
-    { id: 'verb_preposition', name: 'Verb + Preposition', description: 'Common verb-preposition pairs (gostar de, precisar de).' },
-    { id: 'passive_voice', name: 'Passive Voice', description: 'When the subject receives the action (ser + participle).' },
-    { id: 'subject_verb_agreement', name: 'Subject-Verb Agreement', description: 'Ensuring verbs match their subjects (Concordância Verbal).' },
-    { id: 'idiomatic_expressions', name: 'Idiomatic Expressions', description: 'Common phrases with verbs like dar, fazer, ter, estar.' },
-
-    // --- Pronouns & Objects ---
-    { id: 'direct_object_pronouns', name: 'Direct Object Pronouns', description: 'Using o, a, os, as.' },
-    { id: 'indirect_object_pronouns', name: 'Indirect Object Pronouns', description: 'Using lhe, lhes.' },
-    { id: 'clitic_placement', name: 'Clitic Placement', description: 'Pronoun placement (próclise, ênclise, mesóclise).' },
-    { id: 'demonstrative_pronouns', name: 'Demonstrative Pronouns', description: 'Pointing things out with este, esse, aquele.' },
-    { id: 'relative_pronouns', name: 'Relative Pronouns', description: 'Connecting clauses with que, quem, cujo, onde.' },
-    
-    // --- Nouns & Adjectives ---
-    { id: 'noun_gender', name: 'Gender of Nouns', description: 'Masculine and feminine noun rules.' },
-    { id: 'noun_pluralization', name: 'Pluralization of Nouns', description: 'Rules for making nouns plural.' },
-    { id: 'adjectives', name: 'Adjectives', description: 'Position, agreement, and usage.' },
-    { id: 'comparatives_superlatives', name: 'Comparatives & Superlatives', description: 'Making comparisons (mais/menos que, o maior).' },
-    { id: 'diminutives_augmentatives', name: 'Diminutives & Augmentatives', description: 'Expressing size or affection (-inho, -ão).' },
-    { id: 'quantifiers', name: 'Quantifiers', description: 'Expressing quantity with muito, pouco, tanto, todo.' },
-
-    // --- Sentence Structure & Misc ---
-    { id: 'adverbs', name: 'Adverbs & Adverbial Phrases', description: 'Modifying verbs, adjectives, or other adverbs.' },
-    { id: 'negation', name: 'Negation', description: 'Using não, nunca, jamais, and nem.' },
-    { id: 'prepositions', name: 'Prepositions', description: 'Connecting words (de, em, por, para, com).' },
-    { id: 'conjunctions', name: 'Conjunctions', description: 'Connecting ideas (mas, e, porque, quando).' },
-    { id: 'impersonal_se', name: 'Impersonal "se"', description: 'General statements like "one does" (faz-se).' },
+export const GRAMMAR_TOPIC_GROUPS = [
+    {
+        level: 'Foundations',
+        topics: [
+            { id: 'ser_vs_estar', name: 'Ser vs. Estar', description: 'The fundamental differences between the two "to be" verbs.', example: { pt: 'Ela é professora. / Ela está cansada.', en: 'She is a teacher. / She is tired.' } },
+            { id: 'present_indicative', name: 'Present Tense', description: 'Actions happening now or regularly.', example: { pt: 'Eu falo português todos os dias.', en: 'I speak Portuguese every day.' } },
+            { id: 'subject_verb_agreement', name: 'Subject-Verb Agreement', description: 'Ensuring verbs match their subjects (Concordância Verbal).', example: { pt: 'As meninas são muito inteligentes.', en: 'The girls are very smart.' } },
+            { id: 'noun_gender', name: 'Gender of Nouns', description: 'Masculine and feminine noun rules.', example: { pt: 'O carro é novo. / A casa é nova.', en: 'The car is new. / The house is new.' } },
+            { id: 'noun_pluralisation', name: 'Pluralisation of Nouns', description: 'Rules for making nouns plural.', example: { pt: 'um problema / dois problemas', en: 'one problem / two problems' } },
+            { id: 'adjectives', name: 'Adjectives', description: 'Position, agreement, and usage.', example: { pt: 'um homem alto / uma mulher alta', en: 'a tall man / a tall woman' } },
+            { id: 'negation', name: 'Negation', description: 'Using não, nunca, jamais, and nem.', example: { pt: 'Eu nunca vou à praia no inverno.', en: 'I never go to the beach in the winter.' } },
+            { id: 'prepositions', name: 'Prepositions', description: 'Connecting words (de, em, por, para, com).', example: { pt: 'Vou para o Brasil em dezembro.', en: 'I am going to Brazil in December.' } },
+        ]
+    },
+    {
+        level: 'Building Fluency',
+        topics: [
+            { id: 'preterite_tense', name: 'Preterite Tense', description: 'Completed actions in the past (Pretérito Perfeito).', example: { pt: 'Ele comeu o bolo inteiro ontem.', en: 'He ate the whole cake yesterday.' } },
+            { id: 'imperfect_tense', name: 'Imperfect Tense', description: 'Ongoing or habitual past actions (Pretérito Imperfeito).', example: { pt: 'Nós líamos muitos livros na infância.', en: 'We used to read many books in childhood.' } },
+            { id: 'gerunds', name: 'Progressive / Gerunds', description: 'Ongoing actions (falando, comendo, partindo).', example: { pt: 'Estou trabalhando agora, te ligo depois.', en: 'I am working now, I\'ll call you later.' } },
+            { id: 'imperative_mood', name: 'Imperative Mood', description: 'Giving commands and making requests (e.g., "Fale!").', example: { pt: 'Fale com ele agora, por favor!', en: 'Speak with him now, please!' } },
+            { id: 'reflexive_verbs', name: 'Reflexive Verbs', description: 'Actions done to oneself (e.g., levantar-se).', example: { pt: 'Ela se levanta cedo todos os dias.', en: 'She gets up early every day.' } },
+            { id: 'direct_object_pronouns', name: 'Direct Object Pronouns', description: 'Using o, a, os, as.', example: { pt: 'Você viu meu irmão? Eu o vi na rua.', en: 'Did you see my brother? I saw him on the street.' } },
+            { id: 'indirect_object_pronouns', name: 'Indirect Object Pronouns', description: 'Using lhe, lhes.', example: { pt: 'Eu lhe dei o presente ontem.', en: 'I gave him/her the present yesterday.' } },
+            { id: 'verb_preposition', name: 'Verb + Preposition', description: 'Common verb-preposition pairs (gostar de, precisar de).', example: { pt: 'Eu preciso de ajuda com isto.', en: 'I need help with this.' } },
+            { id: 'comparatives_superlatives', name: 'Comparatives & Superlatives', description: 'Making comparisons (mais/menos que, o maior).', example: { pt: 'Ele é mais alto que ela.', en: 'He is taller than her.' } },
+            { id: 'quantifiers', name: 'Quantifiers', description: 'Expressing quantity with muito, pouco, tanto, todo.', example: { pt: 'Tenho muitos amigos no Brasil.', en: 'I have many friends in Brazil.' } },
+            { id: 'adverbs', name: 'Adverbs & Adverbial Phrases', description: 'Modifying verbs, adjectives, or other adverbs.', example: { pt: 'Ele corre rapidamente para o trabalho.', en: 'He runs quickly to work.' } },
+            { id: 'conjunctions', name: 'Conjunctions', description: 'Connecting ideas (mas, e, porque, quando).', example: { pt: 'Eu estudo de manhã e trabalho à tarde.', en: 'I study in the morning and work in the afternoon.' } },
+        ]
+    },
+    {
+        level: 'Advanced Concepts',
+        topics: [
+            { id: 'conditional_tense', name: 'Conditional Tense', description: 'Expressing "would" do something (Futuro do Pretérito).', example: { pt: 'Eu compraria um carro se tivesse dinheiro.', en: 'I would buy a car if I had money.' } },
+            { id: 'present_subjunctive', name: 'Present Subjunctive', description: 'Expressing wishes, doubts, or hypotheticals.', example: { pt: 'Espero que você venha para a festa.', en: 'I hope that you come to the party.' } },
+            { id: 'imperfect_subjunctive', name: 'Imperfect Subjunctive', description: 'For unlikely events or past hypotheticals.', example: { pt: 'Se eu pudesse, eu viajaria o mundo.', en: 'If I could, I would travel the world.' } },
+            { id: 'future_subjunctive', name: 'Future Subjunctive', description: 'Hypothetical future actions (e.g., "Quando eu for...").', example: { pt: 'Quando você vir o filme, vai entender.', en: 'When you see the movie, you will understand.' } },
+            { id: 'negative_imperative', name: 'Negative Imperative', description: 'Giving negative commands (e.g., "Não fale!").', example: { pt: 'Não coma isso, está estragado!', en: 'Don\'t eat that, it\'s spoiled!' } },
+            { id: 'compound_tenses', name: 'Compound Tenses (Perfect)', description: 'Perfect forms using "ter" or "haver" (e.g., "tenho ido").', example: { pt: 'Eu tenho estudado muito ultimamente.', en: 'I have been studying a lot lately.' } },
+            { id: 'personal_infinitive', name: 'Personal Infinitive', description: 'Infinitives with a specific subject (e.g., "para eu fazer").', example: { pt: 'É importante para eles aprenderem isso.', en: 'It is important for them to learn this.' } },
+            { id: 'passive_voice', name: 'Passive Voice', description: 'When the subject receives the action (ser + participle).', example: { pt: 'O livro foi escrito por uma autora famosa.', en: 'The book was written by a famous author.' } },
+            { id: 'clitic_placement', name: 'Clitic Placement', description: 'Pronoun placement (próclise, ênclise, mesóclise).', example: { pt: 'Eu te amo. / Amo-te.', en: 'I love you. / I love you. (formal)' } },
+            { id: 'impersonal_se', name: 'Impersonal "se"', description: 'General statements like "one does" (faz-se).', example: { pt: 'Fala-se português aqui.', en: 'Portuguese is spoken here.' } },
+            { id: 'causative_constructions', name: 'Causative Constructions', description: 'Using mandar, fazer, or deixar + infinitive.', example: { pt: 'Deixei meu filho jogar videogame.', en: 'I let my son play video games.' } },
+            { id: 'pronominal_verbs', name: 'Pronominal Verbs', description: 'Verbs that require a reflexive pronoun but aren\'t reflexive.', example: { pt: 'Eu me esqueci da chave.', en: 'I forgot the key.' } },
+            { id: 'idiomatic_expressions', name: 'Idiomatic Expressions', description: 'Common phrases with verbs like dar, fazer, ter, estar.', example: { pt: 'No final, deu tudo certo.', en: 'In the end, everything went well.' } },
+            { id: 'demonstrative_pronouns', name: 'Demonstrative Pronouns', description: 'Pointing things out with este, esse, aquele.', example: { pt: 'Este livro aqui é meu, aquele lá é seu.', en: 'This book here is mine, that one there is yours.' } },
+            { id: 'relative_pronouns', name: 'Relative Pronouns', description: 'Connecting clauses with que, quem, cujo, onde.', example: { pt: 'A casa onde eu moro é grande.', en: 'The house where I live is big.' } },
+            { id: 'diminutives_augmentatives', name: 'Diminutives & Augmentatives', description: 'Expressing size or affection (-inho, -ão).', example: { pt: 'gato / gatinho / gatão', en: 'cat / little cat / big cat' } },
+        ]
+    }
 ];
 
 export const VOCABULARY_CATEGORIES = [
@@ -198,7 +200,7 @@ export const FUNCTIONAL_DOMAINS: FunctionalDomain[] = [
       },
       {
         name: 'Shopping',
-        functions: ['Asking for prices', 'Asking about sizes/colors', 'Paying for items', 'Returning an item']
+        functions: ['Asking for prices', 'Asking about sizes/colours', 'Paying for items', 'Returning an item']
       }
     ]
   },

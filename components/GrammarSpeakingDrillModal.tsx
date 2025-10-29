@@ -83,18 +83,26 @@ export const GrammarSpeakingDrillModal: React.FC<GrammarSpeakingDrillModalProps>
 
     // Play current audio
     if (audioData[index]) {
-        await playAudio(audioData[index], audioCtx);
+        // Check if we are still on the same index before playing from cache
+        if (currentIndex === index) {
+            await playAudio(audioData[index], audioCtx);
+        }
     } else {
         setIsAudioLoading(true);
         try {
             const base64 = await getSpeech(examples[index].portuguese);
-            // Use functional update to prevent race conditions
             setAudioData(prev => ({ ...prev, [index]: base64 }));
-            await playAudio(base64, audioCtx);
+            // After fetching, only play the audio if the index is still current
+            if (currentIndex === index) {
+                await playAudio(base64, audioCtx);
+            }
         } catch (err) {
             console.error("Audio playback failed:", err);
         } finally {
-            setIsAudioLoading(false);
+            // Only turn off the loader if this operation was for the current index
+            if (currentIndex === index) {
+                setIsAudioLoading(false);
+            }
         }
     }
 
@@ -110,7 +118,7 @@ export const GrammarSpeakingDrillModal: React.FC<GrammarSpeakingDrillModalProps>
                 console.warn(`Audio prefetch for index ${nextIndex} failed:`, err);
             });
     }
-  }, [examples, audioData]);
+  }, [examples, audioData, currentIndex]);
 
   const handleNext = () => {
     if (!isRevealed) {
