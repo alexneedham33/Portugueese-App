@@ -1,6 +1,6 @@
 import React from 'react';
 
-type AppView = 'conjugator' | 'grammar' | 'vocabulary' | 'functional';
+type AppView = 'conjugator' | 'grammar' | 'vocabulary' | 'functional' | 'ai_chat';
 
 interface HeaderProps {
     activeView: AppView;
@@ -52,6 +52,9 @@ export const Header: React.FC<HeaderProps> = ({ activeView, onViewChange }) => {
             </NavButton>
             <NavButton isActive={activeView === 'functional'} onClick={() => onViewChange('functional')}>
                 Functions
+            </NavButton>
+            <NavButton isActive={activeView === 'ai_chat'} onClick={() => onViewChange('ai_chat')}>
+                AI Chat
             </NavButton>
           </nav>
         </div>

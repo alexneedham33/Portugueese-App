@@ -1,7 +1,5 @@
 {
   "name": "Portuguese Verb Conjugator",
   "description": "An interactive tool to learn Brazilian Portuguese. Explore verb conjugations with examples or generate contextual paragraphs to understand specific grammar points, all powered by AI.",
-  "requestFramePermissions": [
-    "microphone"
-  ]
+  "requestFramePermissions": []
 }

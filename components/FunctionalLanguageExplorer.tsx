@@ -125,39 +125,8 @@ export const FunctionalLanguageExplorer: React.FC = () => {
     const allDomains = useMemo(() => [...customDomains, ...FUNCTIONAL_DOMAINS], [customDomains]);
 
     const filteredDomains = useMemo((): FunctionalDomain[] => {
-        if (!searchQuery.trim()) {
-          return allDomains;
-        }
-        const lowerQuery = searchQuery.toLowerCase();
-      
-        return allDomains
-          .map(domain => {
-            if (domain.name.toLowerCase().includes(lowerQuery)) {
-                return domain; // If domain name matches, include the whole domain
-            }
-
-            const matchingSubtopics = domain.subtopics
-              .map(subtopic => {
-                if (subtopic.name.toLowerCase().includes(lowerQuery)) {
-                    return subtopic; // If subtopic name matches, include it
-                }
-                const matchingFunctions = subtopic.functions.filter(func =>
-                  func.toLowerCase().includes(lowerQuery)
-                );
-                if (matchingFunctions.length > 0) {
-                  return { ...subtopic, functions: matchingFunctions };
-                }
-                return null;
-              })
-              .filter((st): st is FunctionalSubtopic => st !== null);
-            
-            if (matchingSubtopics.length > 0) {
-              return { ...domain, subtopics: matchingSubtopics };
-            }
-            return null;
-          })
-          .filter((d): d is FunctionalDomain => d !== null);
-    }, [searchQuery, allDomains]);
+        return allDomains;
+    }, [allDomains]);
 
     const handleSelectFunction = async (func: string, domain?: FunctionalDomain | null, subtopic?: FunctionalSubtopic | null) => {
         const currentDomain = domain || selectedDomain;
@@ -201,6 +170,19 @@ export const FunctionalLanguageExplorer: React.FC = () => {
         // Reuse the existing handler to fetch data and update state
         setSelectedSubtopic(randomSubtopic); // Set this first for UI consistency
         handleSelectFunction(randomFunction, selectedDomain, randomSubtopic);
+    };
+
+    const handleSelectRandomFunctionFromSubtopic = (subtopic: FunctionalSubtopic) => {
+        if (!selectedDomain || !subtopic.functions || subtopic.functions.length === 0) {
+            return;
+        }
+
+        const randomIndex = Math.floor(Math.random() * subtopic.functions.length);
+        const randomFunction = subtopic.functions[randomIndex];
+
+        // Reuse the existing handler to fetch data and update state
+        setSelectedSubtopic(subtopic); // Set this first for UI consistency
+        handleSelectFunction(randomFunction, selectedDomain, subtopic);
     };
 
     const handleGenerateChoice = (e: React.FormEvent) => {
@@ -363,8 +345,17 @@ export const FunctionalLanguageExplorer: React.FC = () => {
                         <ul className="space-y-4">
                             {selectedDomain.subtopics.map(subtopic => (
                                 <li key={subtopic.name}>
-                                    <h3 className="font-semibold text-slate-600 px-3 py-1">{subtopic.name}</h3>
-                                    <ul className="space-y-1">
+                                    <button
+                                        onClick={() => handleSelectRandomFunctionFromSubtopic(subtopic)}
+                                        className="w-full text-left p-3 rounded-lg font-bold text-blue-800 bg-blue-100 hover:bg-blue-200 transition-colors flex items-center justify-between focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                        title={`Get a random example from ${subtopic.name}`}
+                                    >
+                                        <span>{subtopic.name}</span>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100 4m0-4a2 2 0 110 4m0-4v2m0 4v2m8-12a2 2 0 100 4m0-4a2 2 0 110 4m0-4v2m0 4v2M4 8a2 2 0 100 4m0-4a2 2 0 110 4m0-4v2m0 4v2m8-12a2 2 0 100 4m0-4a2 2 0 110 4m0-4v2m0 4v2" />
+                                        </svg>
+                                    </button>
+                                    <ul className="space-y-1 mt-1 pl-4 border-l-2 border-slate-200">
                                         {subtopic.functions.map(func => (
                                             <li key={func}>
                                                 <button
@@ -399,8 +390,8 @@ export const FunctionalLanguageExplorer: React.FC = () => {
                         <input
                             type="text"
                             value={searchQuery}
-                            onChange={(e) => { setSearchQuery(e.target.value); setSelectedDomain(null); }}
-                            placeholder="Filter topics or describe a scene..."
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Create a topic..."
                             className="w-full pl-4 pr-4 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                          <button

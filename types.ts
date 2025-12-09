@@ -86,3 +86,21 @@ export interface FunctionalDomain {
   subtopics: FunctionalSubtopic[];
   isCustom?: boolean;
 }
+
+// --- New Types for AI Chat ---
+
+export interface ChatMessage {
+    id: number;
+    sender: 'user' | 'ai';
+    portuguese: string;
+    english: string;
+    correction?: {
+        portuguese: string;
+        english: string;
+    } | null;
+}
+
+export type ChatStreamEvent =
+    | { type: 'correction'; correction: { portuguese: string; english: string } | null }
+    | { type: 'portuguese_chunk'; chunk: string }
+    | { type: 'english_translation'; english: string };

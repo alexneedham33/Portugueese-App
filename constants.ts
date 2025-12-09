@@ -308,3 +308,15 @@ export const FUNCTIONAL_DOMAINS: FunctionalDomain[] = [
 export const VOCABULARY_CUSTOM_CATEGORIES_STORAGE_KEY = 'portugueseVocabularyCustomCategories';
 export const WORD_BANK_STORAGE_KEY = 'portugueseWordBank';
 export const FUNCTIONAL_CUSTOM_DOMAINS_STORAGE_KEY = 'portugueseFunctionalCustomDomains';
+
+export const CHAT_TOPICS = [
+    { id: 'general_conversation', name: 'General Conversation', emoji: '💬', description: 'Start an open-ended chat about anything.' },
+    { id: 'ordering_coffee', name: 'Ordering Coffee', emoji: '☕️', description: 'Practice a typical café interaction.' },
+    { id: 'weekend_plans', name: 'Talking about the weekend', emoji: '🎉', description: 'Chat about past or future weekend plans.' },
+    { id: 'asking_directions', name: 'Asking for Directions', emoji: '🗺️', description: 'Pretend you are lost in a city.' },
+    { id: 'at_the_market', name: 'At the Market', emoji: '🍎', description: 'Practice buying fruits and vegetables.' },
+    { id: 'making_friends', name: 'Making a new friend', emoji: '👋', description: 'Introduce yourself and ask basic questions.' },
+    { id: 'talking_about_hobbies', name: 'Discussing Hobbies', emoji: '🎨', description: 'Share what you like to do for fun.' },
+    { id: 'booking_hotel', name: 'Booking a Hotel', emoji: '🏨', description: 'Practice making a reservation over the phone.' },
+    { id: 'discussing_weather', name: 'Talking about the Weather', emoji: '☀️', description: 'A classic small-talk scenario.' },
+];

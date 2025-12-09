@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { Example, SelectedConjugation } from '../types';
 import { Card, CardHeader, CardContent } from './Card';
 import { Loader } from './Loader';
-import { PracticeModal } from './PracticeModal';
 import { getSpeech } from '../services/geminiService';
 import { playAudio } from '../utils/audio';
 
@@ -49,7 +48,6 @@ export const ExampleSentences: React.FC<ExampleSentencesProps> = ({
 }) => {
   const [loadingAudio, setLoadingAudio] = useState<Set<string>>(new Set());
   const [audioCache, setAudioCache] = useState<Record<string, string>>({});
-  const [isPracticeModalOpen, setIsPracticeModalOpen] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   
   // This effect prefetches audio silently in the background when examples load.
@@ -183,17 +181,6 @@ export const ExampleSentences: React.FC<ExampleSentencesProps> = ({
                     ) : 'Get New Examples'}
                 </button>
 
-                <button
-                    onClick={() => setIsPracticeModalOpen(true)}
-                    className="w-full px-4 py-2 bg-white border border-slate-300 text-slate-700 font-semibold rounded-md hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors flex items-center justify-center gap-2"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M7 4a3 3 0 016 0v6a3 3 0 11-6 0V4z" />
-                        <path d="M5.5 9.5a.5.5 0 01.5.5v1a4 4 0 004 4v-1.5a.5.5 0 011 0V16a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5v-1a6 6 0 01-6-6v-1a.5.5 0 01.5-.5z" />
-                    </svg>
-                    <span>Practice Speaking</span>
-                </button>
-
                 {error && <p className="text-sm text-center text-red-600">{error}</p>}
             </div>
         </div>
@@ -221,32 +208,22 @@ export const ExampleSentences: React.FC<ExampleSentencesProps> = ({
   };
 
   return (
-    <>
-      <Card className="h-full flex flex-col">
-        <CardHeader>
-          <h2 className="text-xl font-bold text-slate-800">Examples</h2>
-          {selectedConjugation ? (
-              <p className="text-sm text-slate-500">
-                  Usage of <span className="font-semibold text-indigo-600">"{selectedConjugation.form}"</span>
-              </p>
-          ) : selectedVerb && examples && examples.length > 0 ? (
-              <p className="text-sm text-slate-500">
-                  General examples for <span className="font-semibold text-indigo-600">"{selectedVerb}"</span>
-              </p>
-          ) : null}
-        </CardHeader>
-        <CardContent className="flex flex-col flex-grow">
-          {renderContent()}
-        </CardContent>
-      </Card>
-
-      {examples && examples.length > 0 && (
-         <PracticeModal
-            isOpen={isPracticeModalOpen}
-            onClose={() => setIsPracticeModalOpen(false)}
-            examples={examples}
-        />
-      )}
-    </>
+    <Card className="h-full flex flex-col">
+      <CardHeader>
+        <h2 className="text-xl font-bold text-slate-800">Examples</h2>
+        {selectedConjugation ? (
+            <p className="text-sm text-slate-500">
+                Usage of <span className="font-semibold text-indigo-600">"{selectedConjugation.form}"</span>
+            </p>
+        ) : selectedVerb && examples && examples.length > 0 ? (
+            <p className="text-sm text-slate-500">
+                General examples for <span className="font-semibold text-indigo-600">"{selectedVerb}"</span>
+            </p>
+        ) : null}
+      </CardHeader>
+      <CardContent className="flex flex-col flex-grow">
+        {renderContent()}
+      </CardContent>
+    </Card>
   );
 };

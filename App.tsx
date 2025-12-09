@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { VerbList } from './components/VerbList';
 import { ConjugationDisplay } from './components/ConjugationDisplay';
@@ -10,6 +11,7 @@ import { Footer } from './components/Footer';
 import { GrammarExplorer } from './components/GrammarExplorer';
 import { VocabularyExplorer } from './components/VocabularyExplorer';
 import { FunctionalLanguageExplorer } from './components/FunctionalLanguageExplorer';
+import { AiChat } from './components/AiChat';
 
 const VERBS_STORAGE_KEY = 'portugueseVerbs';
 
@@ -31,7 +33,7 @@ const App: React.FC = () => {
     return INITIAL_VERBS;
   });
 
-  const [activeView, setActiveView] = useState<'conjugator' | 'grammar' | 'vocabulary' | 'functional'>('conjugator');
+  const [activeView, setActiveView] = useState<'conjugator' | 'grammar' | 'vocabulary' | 'functional' | 'ai_chat'>('conjugator');
   const [selectedVerb, setSelectedVerb] = useState<string | null>(verbs[0] || null);
   const [conjugations, setConjugations] = useState<ConjugationData | null>(null);
   const [selectedConjugation, setSelectedConjugation] = useState<SelectedConjugation | null>(null);
@@ -280,6 +282,8 @@ const App: React.FC = () => {
         return <VocabularyExplorer />;
       case 'functional':
         return <FunctionalLanguageExplorer />;
+      case 'ai_chat':
+        return <AiChat onClose={() => setActiveView('conjugator')} />;
       default:
         return null;
     }

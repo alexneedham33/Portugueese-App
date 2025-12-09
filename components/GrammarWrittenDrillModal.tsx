@@ -13,6 +13,15 @@ type DrillStatus = 'loading' | 'ready' | 'submitted' | 'error';
 
 const DRILL_COUNT = 10;
 
+// Helper to compare strings while ignoring accents/diacritics
+const normalizeString = (str: string): string => {
+    return str
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
+};
+
 export const GrammarWrittenDrillModal: React.FC<GrammarWrittenDrillModalProps> = ({ isOpen, onClose, topic }) => {
   const [status, setStatus] = useState<DrillStatus>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -20,13 +29,15 @@ export const GrammarWrittenDrillModal: React.FC<GrammarWrittenDrillModalProps> =
   const [userAnswers, setUserAnswers] = useState<string[]>([]);
   const [score, setScore] = useState(0);
   const [revealedIndices, setRevealedIndices] = useState<Set<number>>(new Set());
+  const [submittedIndices, setSubmittedIndices] = useState<Set<number>>(new Set());
 
   const listRef = useRef<HTMLDivElement>(null);
 
   const fetchDrills = useCallback(async () => {
     setStatus('loading');
     setError(null);
-    setRevealedIndices(new Set()); // Reset revealed answers
+    setRevealedIndices(new Set());
+    setSubmittedIndices(new Set());
     try {
       const newDrills = await generateWrittenDrills(topic.name, DRILL_COUNT);
       if (newDrills.length < DRILL_COUNT) {
@@ -54,6 +65,7 @@ export const GrammarWrittenDrillModal: React.FC<GrammarWrittenDrillModalProps> =
         setError(null);
         setScore(0);
         setRevealedIndices(new Set());
+        setSubmittedIndices(new Set());
       }, 300); // Delay reset to allow for fade-out animation
     }
   }, [isOpen, fetchDrills]);
@@ -69,32 +81,50 @@ export const GrammarWrittenDrillModal: React.FC<GrammarWrittenDrillModalProps> =
     handleInputChange(index, drills[index].correctAnswer);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        
+        if (status !== 'submitted' && !submittedIndices.has(index) && !revealedIndices.has(index)) {
+            setSubmittedIndices(prev => new Set(prev).add(index));
+        }
+        
+        // Try to focus next input field
+        const allInputs = Array.from(e.currentTarget.form?.elements || [])
+            // FIX: Explicitly type `el` as Element to resolve `tagName` not existing on type `unknown`.
+            .filter((el: Element) => el.tagName === 'INPUT') as HTMLInputElement[];
+        const currentIndex = allInputs.indexOf(e.currentTarget);
+        if (currentIndex !== -1 && currentIndex < allInputs.length - 1) {
+            allInputs[currentIndex + 1].focus();
+        }
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     let currentScore = 0;
     drills.forEach((drill, index) => {
-      // Case-insensitive and trims whitespace for forgiving comparison
-      if (userAnswers[index].trim().toLowerCase() === drill.correctAnswer.toLowerCase()) {
+      if (normalizeString(userAnswers[index]) === normalizeString(drill.correctAnswer)) {
         currentScore++;
       }
     });
     setScore(currentScore);
     setStatus('submitted');
-    // Scroll to the top of the list to show the score
+    setSubmittedIndices(new Set(drills.map((_, i) => i)));
     listRef.current?.scrollTo(0, 0);
   };
 
   const renderDrillItem = (drill: WrittenDrill, index: number) => {
     const sentenceParts = drill.sentenceWithBlank.split('___');
-    const isSubmitted = status === 'submitted';
+    const isSubmittedForItem = status === 'submitted' || submittedIndices.has(index);
     const isRevealed = revealedIndices.has(index);
-    const isCorrect = isSubmitted && userAnswers[index].trim().toLowerCase() === drill.correctAnswer.toLowerCase();
+    const isCorrect = isSubmittedForItem && normalizeString(userAnswers[index]) === normalizeString(drill.correctAnswer);
+    const isExactMatch = userAnswers[index].trim().toLowerCase() === drill.correctAnswer.toLowerCase();
 
     let containerClasses = 'bg-white border-slate-200';
     let inputBorderClasses = 'border-slate-300 focus-within:border-indigo-500 focus-within:ring-indigo-500';
 
-    if (isSubmitted) {
+    if (isSubmittedForItem) {
         if (isCorrect) {
             containerClasses = 'bg-green-50 border-green-300';
             inputBorderClasses = 'border-green-500 ring-green-500';
@@ -115,7 +145,7 @@ export const GrammarWrittenDrillModal: React.FC<GrammarWrittenDrillModalProps> =
                      <button
                         type="button"
                         onClick={() => handleRevealAnswer(index)}
-                        disabled={isSubmitted || isRevealed}
+                        disabled={isSubmittedForItem || isRevealed}
                         className="mt-2 text-slate-400 hover:text-indigo-600 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors"
                         aria-label="Reveal answer"
                         title="Reveal answer"
@@ -136,7 +166,8 @@ export const GrammarWrittenDrillModal: React.FC<GrammarWrittenDrillModalProps> =
                             type="text"
                             value={userAnswers[index]}
                             onChange={(e) => handleInputChange(index, e.target.value)}
-                            disabled={isSubmitted || isRevealed}
+                            onKeyDown={(e) => handleKeyDown(e, index)}
+                            disabled={isSubmittedForItem || isRevealed}
                             className={`inline-block w-48 px-2 py-1 bg-white border-2 rounded-md text-xl shadow-sm text-center font-bold text-indigo-700
                                         ${inputBorderClasses}
                                         focus:outline-none focus:ring-1 
@@ -147,14 +178,21 @@ export const GrammarWrittenDrillModal: React.FC<GrammarWrittenDrillModalProps> =
                         <span>{sentenceParts[1]}</span>
                     </div>
 
-                    {isSubmitted && (
+                    {isSubmittedForItem && (
                         <div className="mt-4 p-3 rounded-lg bg-white border border-slate-200">
                             {isCorrect ? (
-                                <div className="flex items-center gap-2 font-semibold text-green-600">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                    </svg>
-                                    <span>Correct!</span>
+                                <div>
+                                    <div className="flex items-center gap-2 font-semibold text-green-600">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                        <span>Correct!</span>
+                                    </div>
+                                    {!isExactMatch && (
+                                        <p className="mt-2 text-sm text-slate-700">
+                                            The correct spelling is: <strong className="font-bold text-green-700">"{drill.correctAnswer}"</strong>
+                                        </p>
+                                    )}
                                 </div>
                             ) : (
                                 <div>

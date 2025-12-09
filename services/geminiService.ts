@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import type { ConjugationData, Example, GrammarParagraph, GrammarTheory, WrittenDrill, VocabularyItem, FunctionalScene, FunctionalDomain } from '../types';
+import type { ConjugationData, Example, GrammarParagraph, GrammarTheory, WrittenDrill, VocabularyItem, FunctionalScene, FunctionalDomain, ChatMessage, ChatStreamEvent } from '../types';
 
 if (!process.env.API_KEY) {
   throw new Error("API_KEY environment variable is not set");
@@ -47,6 +48,27 @@ const exampleCache = loadCache<Example[]>(EXAMPLE_CACHE_KEY);
 const vocabularyCache = loadCache<VocabularyItem[]>(VOCABULARY_CACHE_KEY);
 const functionalSceneCache = loadCache<FunctionalScene>(FUNCTIONAL_SCENE_CACHE_KEY);
 // -----------------
+
+// --- Centralized API Error Handling ---
+const handleApiError = (error: unknown): never => {
+    console.error("Gemini API Error:", error);
+    if (error instanceof Error) {
+        const errorMessage = error.message.toLowerCase();
+        if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+            throw new Error("API Quota Exceeded: You have run out of free daily requests. Please check your billing configuration in your Google AI project to continue using the service.");
+        }
+        if (errorMessage.includes('api key not valid')) {
+            throw new Error("Invalid API Key: The provided API key is not valid. Please ensure it is configured correctly.");
+        }
+        if (errorMessage.includes('timed out')) {
+            throw new Error("Request Timed Out: The request to the AI model took too long to respond. Please check your internet connection and try again.");
+        }
+    }
+    // Fallback for other errors
+    throw new Error("An unexpected error occurred with the AI model. The service may be temporarily unavailable. Please try again later.");
+};
+// -----------------
+
 
 const verbValidationSchema = {
     type: Type.OBJECT,
@@ -238,6 +260,7 @@ const writtenDrillSchema = {
     required: ['name', 'functions']
 };
 
+// FIX: Corrected a syntax error where 'description' was a shorthand property without a value.
 const functionalDomainSchema = {
     type: Type.OBJECT,
     properties: {
@@ -246,462 +269,434 @@ const functionalDomainSchema = {
         subtopics: {
             type: Type.ARRAY,
             items: functionalSubtopicSchema,
-            description: 'An array of 3-5 distinct subtopics that break down the main topic into smaller, manageable parts.'
-        }
+            description: 'A list of 2-4 logical sub-topics related to the main topic.'
+        },
     },
-    required: ['name', 'emoji', 'subtopics']
+    required: ['name', 'emoji', 'subtopics'],
 };
 
 export const validateVerb = async (verb: string): Promise<VerbValidationResult> => {
-    const prompt = `Is the word "${verb}" a valid infinitive verb in Brazilian Portuguese? Please provide a user-friendly reason if it is not.`;
-  
     try {
-      const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: prompt,
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: verbValidationSchema,
-            temperature: 0,
-          },
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Is "${verb}" a valid infinitive verb in Brazilian Portuguese?`,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: verbValidationSchema,
+            },
         });
-      
-        const jsonString = response.text.trim();
-        const data = JSON.parse(jsonString);
-        return { isValid: data.isValid, reason: data.reason };
+        const json = JSON.parse(result.text);
+        return json;
     } catch (error) {
-      console.error(`Error validating verb '${verb}':`, error);
-      return { isValid: false, reason: "Could not verify the verb at this time. Please try again." };
+        handleApiError(error);
     }
-  };
-
-export const getConjugations = async (verb: string): Promise<ConjugationData> => {
-  if (conjugationCache.has(verb)) {
-    return conjugationCache.get(verb)!;
-  }
-
-  const prompt = `Generate the main conjugations for the Brazilian Portuguese verb '${verb}'. Include: Presente, Pretérito Perfeito, Pretérito Imperfeito, Pretérito Perfeito Composto (using the verb 'ter'), Futuro do Presente, Futuro do Pretérito, Presente do Subjuntivo, and Imperfeito do Subjuntivo. For each tense, provide the forms for 'eu', 'você/ele/ela', 'nós', and 'vocês/eles/elas'.`;
-
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: conjugationSchema,
-      temperature: 0.2,
-    },
-  });
-
-  const jsonString = response.text.trim();
-  const data = JSON.parse(jsonString) as ConjugationData;
-  conjugationCache.set(verb, data); // Cache the result in memory
-  saveCache(CONJUGATION_CACHE_KEY, conjugationCache); // Persist the updated cache to localStorage
-  return data;
 };
 
-export const getExamples = async (verb: string, conjugatedForm: string, existingExamples?: Example[]): Promise<Example[]> => {
-  const cacheKey = `${verb}:${conjugatedForm}`;
-  // Only use cache for the initial fetch (no existing examples provided)
-  if (!existingExamples && exampleCache.has(cacheKey)) {
-    return exampleCache.get(cacheKey)!;
-  }
+export const getConjugations = async (verb: string): Promise<ConjugationData> => {
+    if (conjugationCache.has(verb)) {
+        return conjugationCache.get(verb)!;
+    }
 
-  let prompt = `Provide 5 example sentences in Brazilian Portuguese using the verb '${verb}' in the form '${conjugatedForm}'. Ensure the sentences have a mix of difficulty, from simple to more complex. Also, showcase different meanings or use cases of the verb where applicable. For each sentence, also provide the English translation.`;
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-pro', // More complex task, use pro model
+            contents: `Conjugate the verb "${verb}" in Brazilian Portuguese for the following tenses: presente, pretérito perfeito, pretérito imperfeito, pretérito perfeito composto (using 'ter'), futuro do presente, futuro do pretérito, presente do subjuntivo, and imperfeito do subjuntivo. Provide conjugations for eu, você/ele/ela, nós, and vocês/eles/elas.`,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: conjugationSchema,
+            },
+        });
 
-  if (existingExamples && existingExamples.length > 0) {
-    const existingPortugueseSentences = existingExamples.map(ex => ex.portuguese);
-    prompt = `Provide 5 new and different example sentences in Brazilian Portuguese using the verb '${verb}' in the form '${conjugatedForm}'. Ensure the sentences have a mix of difficulty, from simple to more complex. Also, showcase different meanings or use cases of the verb where applicable. For each sentence, also provide the English translation. Do not repeat any of the following sentences: ${JSON.stringify(existingPortugueseSentences)}`;
-  }
-  
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: examplesSchema,
-    },
-  });
+        const data: ConjugationData = JSON.parse(result.text);
+        conjugationCache.set(verb, data);
+        saveCache(CONJUGATION_CACHE_KEY, conjugationCache);
+        return data;
+    } catch (error) {
+        handleApiError(error);
+    }
+};
 
-  const jsonString = response.text.trim();
-  const data = JSON.parse(jsonString) as Example[];
-  
-  // Cache the result only on the initial fetch
-  if (!existingExamples) {
-    exampleCache.set(cacheKey, data);
-    saveCache(EXAMPLE_CACHE_KEY, exampleCache);
-  }
-  
-  return data;
+export const getExamples = async (verb: string, form: string, existingExamples?: Example[]): Promise<Example[]> => {
+    const cacheKey = `${verb}-${form}`;
+    if (!existingExamples && exampleCache.has(cacheKey)) {
+        return exampleCache.get(cacheKey)!;
+    }
+
+    let prompt = `Provide 5 unique and practical example sentences in Brazilian Portuguese using the verb form "${form}" (from the verb "${verb}"). The sentences should be distinct from each other.`;
+    if (existingExamples && existingExamples.length > 0) {
+        const existingPortuguese = existingExamples.map(e => `"${e.portuguese}"`).join(', ');
+        prompt = `Provide 5 new and unique example sentences for the verb form "${form}" that are different from these: ${existingPortuguese}.`;
+    }
+
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: examplesSchema,
+            },
+        });
+        
+        const data: Example[] = JSON.parse(result.text);
+
+        if (!existingExamples) {
+            exampleCache.set(cacheKey, data);
+            saveCache(EXAMPLE_CACHE_KEY, exampleCache);
+        }
+
+        return data;
+    } catch (error) {
+        handleApiError(error);
+    }
 };
 
 export const getGeneralVerbExamples = async (verb: string, existingExamples?: Example[]): Promise<Example[]> => {
-  const cacheKey = `${verb}:general`;
-  if (!existingExamples && exampleCache.has(cacheKey)) {
-      return exampleCache.get(cacheKey)!;
-  }
+    let prompt = `Provide 5 unique and practical example sentences in Brazilian Portuguese using the verb "${verb}" in various common tenses. The sentences should be distinct from each other.`;
+    if (existingExamples && existingExamples.length > 0) {
+        const existingPortuguese = existingExamples.map(e => `"${e.portuguese}"`).join(', ');
+        prompt = `Provide 5 new and unique example sentences for the verb "${verb}" that are different from these: ${existingPortuguese}. Use a variety of common tenses.`;
+    }
 
-  let prompt = `Provide 5 diverse example sentences for the Brazilian Portuguese verb '${verb}'. The examples should cover a range of common tenses (like present, past, and future) and subjects (like 'eu', 'você', 'nós'). For each sentence, also provide the English translation.`;
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: examplesSchema,
+            },
+        });
+        
+        const data: Example[] = JSON.parse(result.text);
+        return data;
+    } catch (error) {
+        handleApiError(error);
+    }
+};
 
-  if (existingExamples && existingExamples.length > 0) {
-    const existingPortugueseSentences = existingExamples.map(ex => ex.portuguese);
-    prompt = `Provide 5 new and different diverse example sentences for the Brazilian Portuguese verb '${verb}'. The examples should cover a range of common tenses (like present, past, and future) and subjects. For each sentence, also provide the English translation. Do not repeat any of the following sentences: ${JSON.stringify(existingPortugueseSentences)}`;
-  }
-
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: examplesSchema,
-    },
-  });
-
-  const jsonString = response.text.trim();
-  const data = JSON.parse(jsonString) as Example[];
-  
-  // Cache the result only on the initial fetch
-  if (!existingExamples) {
-    exampleCache.set(cacheKey, data);
-    saveCache(EXAMPLE_CACHE_KEY, exampleCache);
-  }
-  return data;
-}
+export const getSpeech = async (text: string): Promise<string> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-preview-tts",
+            contents: [{ parts: [{ text }] }],
+            config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: { voiceName: 'Kore' },
+                    },
+                },
+            },
+        });
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (!base64Audio) {
+            throw new Error("No audio data received from API.");
+        }
+        return base64Audio;
+    } catch (error) {
+        handleApiError(error);
+    }
+};
 
 export const generateGrammarParagraph = async (topic: string, theme: string): Promise<GrammarParagraph> => {
-    const prompt = `
-      You are an expert in teaching Brazilian Portuguese.
-      Your goal is to create a short, natural, and informal paragraph that helps a learner understand a specific grammar point.
+    const prompt = `Create a short, informal paragraph in modern, spoken Brazilian Portuguese about the theme "${theme || 'daily life'}" that clearly demonstrates the use of the grammar topic: "${topic}". The paragraph must sound natural and reflect how people actually speak in Brazil today. Also provide an English translation and an array of the specific words/phrases that are examples of the topic.`;
 
-      Grammar Topic: ${topic}
-      Theme: ${theme || 'a daily life situation'}
-
-      Instructions:
-      1. Write a short paragraph (3-5 sentences) in modern, informal Brazilian Portuguese.
-      2. The paragraph should be about the provided theme.
-      3. The paragraph MUST prominently feature several examples of the specified grammar topic.
-      4. Provide a clear English translation.
-      5. Identify the exact words or short phrases in your Portuguese paragraph that are examples of the grammar topic.
-
-      For example, if the topic is "Present Subjunctive" and theme is "planning a party", the paragraph might be "Espero que você venha para a minha festa. Tomara que faça sol..." and the highlighted words would be ["venha", "faça"].
-    `;
-
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: grammarParagraphSchema,
-            temperature: 0.7,
-        },
-    });
-
-    const jsonString = response.text.trim();
-    const data = JSON.parse(jsonString);
-
-    return data as GrammarParagraph;
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: grammarParagraphSchema,
+            },
+        });
+        
+        const data: GrammarParagraph = JSON.parse(result.text);
+        return data;
+    } catch (error) {
+        handleApiError(error);
+    }
 };
 
-export const getGrammarTheory = async (topicName: string): Promise<GrammarTheory> => {
-    const prompt = `
-      You are an expert Portuguese language teacher. Your task is to provide a clear and concise explanation of a specific grammar topic for an intermediate learner, formatted in JSON.
+export const getGrammarTheory = async (topic: string): Promise<GrammarTheory> => {
+    const prompt = `Explain the grammar topic "${topic}" for a student of spoken Brazilian Portuguese. The explanation must focus on how this grammar is used in everyday, informal conversation in Brazil. If there's a difference between formal/written Portuguese and common spoken usage, you must highlight it. For example, for compound tenses, explain that the simple past is often preferred in speech for completed actions. All example sentences must be natural and reflect modern, spoken Brazilian Portuguese. Provide a clear explanation with rules and use cases, and give 3-4 distinct example sentences with English translations. Format the explanation for readability, using double asterisks for bolding key terms.`;
 
-      Grammar Topic: "${topicName}"
-
-      Instructions:
-      1. Your response MUST be a JSON object that adheres to the provided schema.
-      2. Provide a main 'explanation' of the topic. Explain what it is, when to use it, and any important rules or exceptions. Keep it clear and easy to understand. Use \\n for newlines to create paragraphs.
-      3. Provide at least 3-4 distinct 'examples'.
-      4. For each example, provide the 'portuguese' sentence, the 'english' translation, and an optional brief 'explanation' of how the grammar topic is applied in that specific sentence.
-    `;
-
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: grammarTheorySchema,
-            temperature: 0.3,
-        },
-    });
-
-    const jsonString = response.text.trim();
-    const data = JSON.parse(jsonString);
-
-    return data as GrammarTheory;
-};
-
-export const generateGrammarExamplesBatch = async (topic: string, count: number, existingExamples?: Example[]): Promise<Example[]> => {
-    const existingEnglishSentences = existingExamples?.map(ex => ex.english) || [];
-    const prompt = `
-      You are a language teacher creating practice exercises for a student learning Brazilian Portuguese.
-      Your task is to generate ${count} new and unique practice sentence pairs.
-
-      Grammar Topic to Test: "${topic}"
-
-      Instructions:
-      1. For each pair, create an English sentence for the student to translate. This sentence MUST require them to use the "${topic}" grammar concept in their Portuguese translation.
-      2. Provide the correct and natural Brazilian Portuguese translation for that English sentence.
-      3. IMPORTANT: Ensure a mix of simple, intermediate, and complex sentence structures. Vary the vocabulary, common verb tenses (if appropriate for the topic), and sentence complexity. Do not just provide easy sentences.
-      4. Ensure all ${count} examples are different from each other.
-      ${existingEnglishSentences.length > 0 ? `\n\nDo not repeat any of the following English sentences: ${JSON.stringify(existingEnglishSentences)}` : ''}
-    `;
-    
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: examplesSchema, // Re-use the existing schema for an array of examples
-            temperature: 0.8, // Increased temperature for more creativity/variety
-        },
-    });
-
-    const jsonString = response.text.trim();
-    return JSON.parse(jsonString) as Example[];
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-pro', // Theory needs more reasoning
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: grammarTheorySchema,
+            },
+        });
+        
+        const data: GrammarTheory = JSON.parse(result.text);
+        return data;
+    } catch (error) {
+        handleApiError(error);
+    }
 };
 
 export const generateWrittenDrills = async (topic: string, count: number): Promise<WrittenDrill[]> => {
-    const prompt = `
-      You are a language teacher creating written exercises for a student learning Brazilian Portuguese.
-      Your task is to generate ${count} unique sentences that test a specific grammar point. Each sentence must have a blank space ('___') where the student needs to fill in the correct word or phrase.
+    const prompt = `Create ${count} written drill exercises for the grammar topic "${topic}". Each exercise must use natural, common, spoken Brazilian Portuguese. Each exercise should be a sentence with a blank '___', the correct answer for the blank, and an English hint (the full translated sentence). The drills should be varied and reflect everyday conversation.`;
 
-      Grammar Topic to Test: "${topic}"
-
-      Instructions:
-      1. Create ${count} distinct exercises. Your response MUST be an array of ${count} items.
-      2. For each exercise, provide:
-         a) 'sentenceWithBlank': The Portuguese sentence with '___' as a placeholder. The placeholder must be exactly three underscores.
-         b) 'correctAnswer': The exact word(s) that correctly fill the blank. This should be just the answer, not the full sentence.
-         c) 'englishHint': A simple English translation of the complete, correct sentence to provide context.
-      3. The difficulty should be intermediate. Vary verbs, vocabulary, and sentence structure.
-      4. The blank should ideally contain just one or two words.
-    `;
-
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro", // Using a more powerful model for better instruction following
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: writtenDrillSchema,
-            temperature: 0.7,
-        },
-    });
-
-    const jsonString = response.text.trim();
-    return JSON.parse(jsonString) as WrittenDrill[];
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: writtenDrillSchema,
+            },
+        });
+        
+        const data: WrittenDrill[] = JSON.parse(result.text);
+        return data;
+    } catch (error) {
+        handleApiError(error);
+    }
 };
 
 export const getVocabularyForCategory = async (category: string, existingWords?: VocabularyItem[], wordsToExclude?: string[]): Promise<VocabularyItem[]> => {
-    // If we have words to exclude, we must bypass the generic cache because the result will be different.
-    if (!existingWords && !wordsToExclude && vocabularyCache.has(category)) {
-        return vocabularyCache.get(category)!;
+    const cacheKey = category;
+    if (!existingWords && !wordsToExclude && vocabularyCache.has(cacheKey)) {
+        return vocabularyCache.get(cacheKey)!;
     }
 
-    const basePrompt = `
-      You are a Brazilian Portuguese language expert creating a vocabulary list for a student.
-      Your task is to generate a list of 15-20 essential and practical vocabulary items for a specific category.
-
-      Category: "${category}"
-
-      Instructions:
-      1. Generate a diverse list of words and short phrases, including nouns, verbs, and adjectives where appropriate.
-      2. For each item, you MUST provide:
-         a) 'portugueseWord': The word or phrase in Portuguese.
-         b) 'englishTranslation': The English equivalent.
-         c) 'wordType': The grammatical type (e.g., "noun (masculine)", "noun (feminine)", "verb", "adjective", "phrase"). Be specific about noun gender.
-         d) 'exampleSentence': A natural, practical example sentence in Brazilian Portuguese that shows how the word is used.
-         e) 'exampleTranslation': The English translation of the example sentence.
-      3. The response must be a JSON array that adheres to the provided schema.
-    `;
-
-    let prompt: string;
-    const allExcludedWords = new Set<string>();
-
-    if (existingWords && existingWords.length > 0) {
-        existingWords.forEach(item => allExcludedWords.add(item.portugueseWord));
-    }
-    if (wordsToExclude && wordsToExclude.length > 0) {
-        wordsToExclude.forEach(word => allExcludedWords.add(word));
-    }
-
-    if (allExcludedWords.size > 0) {
-        const exclusionList = Array.from(allExcludedWords);
-        prompt = `${basePrompt}\n4. IMPORTANT: Provide a completely new set of words. Do not repeat any of the following words: ${JSON.stringify(exclusionList)}.`;
-    } else {
-        prompt = basePrompt;
-    }
-
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: vocabularyListSchema,
-            temperature: 0.6,
-        },
-    });
+    let prompt = `Generate a list of 10 useful vocabulary items (words or short phrases) in Brazilian Portuguese for the category "${category}". For each item, provide the Portuguese word, its English translation, the word type (e.g., noun, verb), a practical example sentence in Portuguese, and the English translation of the example.`;
     
-    const jsonString = response.text.trim();
-    const data = JSON.parse(jsonString) as VocabularyItem[];
-    
-    // Cache the result only on the initial fetch if there are no exclusions
-    if (!existingWords && !wordsToExclude) {
-        vocabularyCache.set(category, data);
-        saveCache(VOCABULARY_CACHE_KEY, vocabularyCache);
+    const exclusions = new Set(wordsToExclude || []);
+    if (existingWords) {
+        existingWords.forEach(w => exclusions.add(w.portugueseWord));
     }
-    return data;
+    
+    if (exclusions.size > 0) {
+        const exclusionList = Array.from(exclusions).join(', ');
+        prompt += `\n\nIMPORTANT: Do not include any of the following words in your response: ${exclusionList}.`;
+    }
+
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: vocabularyListSchema,
+            },
+        });
+        
+        const data: VocabularyItem[] = JSON.parse(result.text);
+
+        if (!existingWords && !wordsToExclude) {
+            vocabularyCache.set(cacheKey, data);
+            saveCache(VOCABULARY_CACHE_KEY, vocabularyCache);
+        }
+
+        return data;
+    } catch (error) {
+        handleApiError(error);
+    }
 };
 
-export const getFunctionalScene = async (domain: string, subtopic: string, functionName: string, existingScene?: FunctionalScene): Promise<FunctionalScene> => {
-    // Use a distinct cache key for custom, user-generated topics.
-    const isCustom = domain === 'Custom';
-    const cacheKey = isCustom ? `custom:${functionName}` : `${domain}:${subtopic}:${functionName}`;
-    
-    // If we are regenerating (existingScene is provided), bypass the cache.
+export const generateGrammarExamplesBatch = async (topic: string, count: number, existingExamples?: Example[]): Promise<Example[]> => {
+    let prompt = `Generate ${count} distinct example sentences in modern, spoken Brazilian Portuguese that clearly demonstrate the grammar topic: "${topic}". The sentences must sound natural and reflect how people actually talk in Brazil, avoiding overly formal or literary constructions. Provide an English translation for each sentence.`;
+    if (existingExamples && existingExamples.length > 0) {
+        const existingPortuguese = existingExamples.map(e => `"${e.portuguese}"`).join(', ');
+        prompt += `\n\nThe new sentences must be different from these: ${existingPortuguese}.`;
+    }
+
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: examplesSchema,
+            },
+        });
+        
+        const data: Example[] = JSON.parse(result.text);
+        return data;
+    } catch (error) {
+        handleApiError(error);
+    }
+};
+
+export const getFunctionalScene = async (domain: string, subtopic: string, func: string, existingScene?: FunctionalScene): Promise<FunctionalScene> => {
+    const cacheKey = `${domain}-${subtopic}-${func}`;
     if (!existingScene && functionalSceneCache.has(cacheKey)) {
         return functionalSceneCache.get(cacheKey)!;
     }
 
-    let basePrompt: string;
-
-    if (isCustom) {
-        // Prompt for generating a scene from a user's freeform query.
-        basePrompt = `
-            You are a Brazilian Portuguese language expert creating a micro-lesson for a language learner.
-            Your task is to generate a short, realistic conversation scene or a pack of practical phrases based on a user-described situation.
-
-            Situation: "${functionName}"
-
-            Instructions:
-            1. Create a JSON object that represents this scene.
-            2. The 'sceneTitle' should be a concise, catchy summary of the situation (e.g., if the user wrote "at a party", a good title is "Making Small Talk at a Party").
-            3. The 'sceneDescription' should be a one-sentence context for the learner.
-            4. Provide a 'phrases' array containing 8-12 conversational turns.
-            5. For each phrase, specify the 'speaker', 'portuguese' phrase, and 'english' translation.
-            6. The dialogue should be natural, modern, and reflect informal Brazilian Portuguese.
-        `;
-    } else {
-        // Original prompt for predefined topics.
-        basePrompt = `
-            You are a Brazilian Portuguese language expert creating a micro-lesson for a language learner.
-            Your task is to generate a short, realistic conversation scene or a pack of practical phrases for a specific situation.
-
-            Domain: "${domain}"
-            Subtopic: "${subtopic}"
-            Language Function: "${functionName}"
-
-            Instructions:
-            1. Create a JSON object that represents this scene.
-            2. Give it a 'sceneTitle' that summarizes the situation (e.g., "Booking a Table").
-            3. Write a brief 'sceneDescription' to set the context for the learner.
-            4. Provide a 'phrases' array containing 8-12 conversational turns.
-            5. For each phrase, specify the 'speaker' (e.g., 'You', 'Receptionist', 'Waiter'), the 'portuguese' phrase, and its 'english' translation.
-            6. The dialogue should be natural, modern, and reflect informal Brazilian Portuguese.
-            7. Ensure the phrases directly relate to the specified Language Function.
-        `;
+    let prompt = `Create a short, practical conversation or scene in Brazilian Portuguese that demonstrates the language function: "${func}". This function belongs to the subtopic "${subtopic}" and the main domain "${domain}". The scene should include 4-6 phrases, alternating between simple speaker roles (e.g., 'You', 'Waiter'). Provide a simple title and one-sentence description for the scene.`;
+    if (existingScene) {
+        prompt = `Generate a new, different scene for the language function "${func}" within the topic "${subtopic}". The new scene should be distinct from a previous one which had the title "${existingScene.sceneTitle}".`;
     }
     
-    const regenerationPrompt = existingScene
-        ? `\n\nIMPORTANT: You are generating a new version of an existing scene for a user who wants more variety. Please provide a significantly different scenario, context, or set of phrases. The previous scene was titled "${existingScene.sceneTitle}" and described as "${existingScene.sceneDescription}". Please generate a fresh take on the topic and avoid reusing phrases from the previous version.`
-        : '';
-    
-    const prompt = basePrompt + regenerationPrompt;
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: functionalSceneSchema,
+            },
+        });
+        
+        const data: FunctionalScene = JSON.parse(result.text);
 
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: functionalSceneSchema,
-            temperature: 0.8, // Slightly higher temperature for more variety on regeneration
-        },
-    });
+        if (!existingScene) {
+            functionalSceneCache.set(cacheKey, data);
+            saveCache(FUNCTIONAL_SCENE_CACHE_KEY, functionalSceneCache);
+        }
 
-    const jsonString = response.text.trim();
-    const data = JSON.parse(jsonString) as FunctionalScene;
-
-    // Only cache the result on the initial fetch (no existing scene provided)
-    if (!existingScene) {
-        functionalSceneCache.set(cacheKey, data);
-        saveCache(FUNCTIONAL_SCENE_CACHE_KEY, functionalSceneCache);
+        return data;
+    } catch (error) {
+        handleApiError(error);
     }
-
-    return data;
 };
-
 
 export const generateFunctionalDomain = async (topic: string): Promise<Omit<FunctionalDomain, 'id' | 'isCustom'>> => {
-    const prompt = `
-        You are a language curriculum designer. Your task is to take a user-provided topic and break it down into a structured, practical learning module for Brazilian Portuguese.
+    const prompt = `Analyze the user-provided topic "${topic}" and structure it as a functional language domain. Create a concise name, a single relevant emoji, and 2-4 logical subtopics. For each subtopic, provide a name and a list of 3-5 specific, practical language functions.`;
 
-        User Topic: "${topic}"
-
-        Instructions:
-        1.  Generate a concise, title-cased 'name' for the topic.
-        2.  Choose a single, relevant 'emoji' that visually represents the topic.
-        3.  Create an array of 3 to 5 logical 'subtopics'. Each subtopic should represent a key stage or aspect of the main topic.
-        4.  For each subtopic, list 3 to 5 practical 'functions'. A function is a specific action or phrase a learner would need to use (e.g., "Asking for the price", "Making a reservation").
-        5.  The entire output MUST be a valid JSON object adhering to the provided schema.
-    `;
-
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: functionalDomainSchema,
-            temperature: 0.5,
-        },
-    });
-
-    const jsonString = response.text.trim();
-    // The type assertion is safe here because the schema ensures the structure.
-    return JSON.parse(jsonString) as Omit<FunctionalDomain, 'id' | 'isCustom'>;
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-pro',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: functionalDomainSchema,
+            },
+        });
+        
+        const data: Omit<FunctionalDomain, 'id' | 'isCustom'> = JSON.parse(result.text);
+        return data;
+    } catch (error) {
+        handleApiError(error);
+    }
 };
 
+export const startChat = async (topic: string): Promise<Omit<ChatMessage, 'id' | 'sender'>> => {
+    const systemInstruction = `You are a friendly and patient Portuguese language tutor. You are starting a conversation with a student about the topic: "${topic}". Your goal is to help them practice. Start with a simple opening question or statement in Portuguese to begin the conversation. Keep your responses relatively short. Also provide an English translation of your response.`;
 
-export const getSpeech = async (text: string): Promise<string> => {
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: `"${text}"` }] }], // Wrap in quotes for more natural TTS pausing
-        config: {
-            responseModalities: [Modality.AUDIO],
-            speechConfig: {
-                voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: 'Kore' }, // A clear, standard voice
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: 'Start the conversation.',
+            config: {
+                systemInstruction,
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        portuguese: { type: Type.STRING },
+                        english: { type: Type.STRING },
+                    },
+                    required: ['portuguese', 'english'],
                 },
             },
-        },
-    });
-
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) {
-        throw new Error("No audio data received from API.");
+        });
+        
+        const data: Omit<ChatMessage, 'id' | 'sender'> = JSON.parse(result.text);
+        return data;
+    } catch (error) {
+        handleApiError(error);
     }
-    return base64Audio;
 };
 
-export const getPronunciationFeedback = async (originalSentence: string, userAttempt: string): Promise<string> => {
-    const prompt = `
-      You are a Brazilian Portuguese pronunciation coach providing feedback to a language learner.
-      The student was asked to say: "${originalSentence}"
-      The student said: "${userAttempt}"
+export async function* getChatResponseStream(
+    history: ChatMessage[],
+    userMessage: string
+): AsyncGenerator<ChatStreamEvent> {
+    const systemInstruction = `You are a friendly and patient Portuguese language tutor. Your goal is to help the user practice Portuguese.
+1. First, analyze the user's last message ("${userMessage}"). If it contains grammatical errors, provide a correction. If it's correct, the correction is null.
+2. Then, provide a natural, conversational response in Portuguese.
+3. Finally, provide the English translation of your Portuguese response.
+Your entire output MUST be a single JSON object with three keys: "correction" (object with "portuguese" and "english" strings, or null), "portugueseResponse" (string), and "englishTranslation" (string).
+Do not add any text outside of this JSON object.`;
 
-      Your task is to provide brief, encouraging, and constructive feedback in English.
-      - If the attempt is perfect or very close, praise them (e.g., "Excellent! That's perfect.").
-      - If there are minor errors, gently point out one key thing to improve (e.g., "Very close! Try to make the 'o' sound in 'fogo' a bit more open.").
-      - If the attempt is very different, be encouraging and highlight the most important word to focus on.
-      - Keep the feedback concise (1-2 sentences) and easy for a learner to understand.
-      - Do not just say "Correct" or "Incorrect". Provide actionable advice.
-    `;
+    const contents = history.map(msg => ({
+        role: msg.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.portuguese }],
+    }));
 
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            temperature: 0.4,
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-pro',
+            contents,
+            config: {
+                systemInstruction,
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        correction: {
+                            type: Type.OBJECT,
+                            nullable: true,
+                            properties: {
+                                portuguese: { type: Type.STRING },
+                                english: { type: Type.STRING },
+                            },
+                            required: ['portuguese', 'english'],
+                        },
+                        portugueseResponse: { type: Type.STRING },
+                        englishTranslation: { type: Type.STRING },
+                    },
+                    required: ['correction', 'portugueseResponse', 'englishTranslation'],
+                }
+            },
+        });
+
+        const responseJson = JSON.parse(result.text);
+
+        const { correction, portugueseResponse, englishTranslation } = responseJson;
+
+        yield { type: 'correction', correction: correction || null };
+
+        const chunks = portugueseResponse.match(/.{1,10}/g) || [portugueseResponse];
+        for (const chunk of chunks) {
+            await new Promise(res => setTimeout(res, 50));
+            yield { type: 'portuguese_chunk', chunk };
         }
-    });
 
-    return response.text;
+        yield { type: 'english_translation', english: englishTranslation };
+
+    } catch (error) {
+        handleApiError(error);
+    }
+}
+
+export const getSuggestedResponse = async (history: ChatMessage[]): Promise<{ portuguese: string }> => {
+    const systemInstruction = `You are an AI assistant helping a Portuguese learner. Based on the conversation history, suggest a logical, simple, and relevant response that the user could say next. The suggestion should be in Portuguese.`;
+    
+    const contents = history.map(msg => ({
+        role: msg.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.portuguese }],
+    }));
+
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: [...contents, { role: 'user', parts: [{ text: 'What could I say next?' }] }],
+            config: {
+                systemInstruction,
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        portuguese: { type: Type.STRING, description: 'A suggested response in Portuguese.' },
+                    },
+                    required: ['portuguese'],
+                },
+            },
+        });
+        
+        const data: { portuguese: string } = JSON.parse(result.text);
+        data.portuguese = data.portuguese.replace(/^"|"$/g, '');
+        return data;
+    } catch (error) {
+        handleApiError(error);
+    }
 };

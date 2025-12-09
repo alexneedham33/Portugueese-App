@@ -95,7 +95,7 @@ export const ConjugationDisplay: React.FC<ConjugationDisplayProps> = ({
                             }`}
                             >
                               <div className="flex items-baseline space-x-3">
-                                <span className="font-medium text-slate-600 w-28 shrink-0">{pronounLabel}</span>
+                                <span className="font-medium text-slate-600 w-32 shrink-0">{pronounLabel}</span>
                                 <span className="font-bold text-slate-900">{form}</span>
                               </div>
                             </button>
